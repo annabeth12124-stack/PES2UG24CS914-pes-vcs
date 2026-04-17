@@ -16,6 +16,7 @@
 
 #include "commit.h"
 #include "index.h"
+#include "pes.h"
 #include "tree.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -193,45 +194,112 @@ int head_update(const ObjectID *new_commit) {
 //   - head_update       : moves the branch pointer to your new commit
 //
 // Returns 0 on success, -1 on error.
+void object_id_to_hex(const ObjectID *id, char *hex) {
+    for (int i = 0; i < 32; i++) {
+        sprintf(hex + (i * 2), "%02x", id->hash[i]);
+    }
+    hex[64] = '\0';
+}
 int commit_create(const char *message, ObjectID *commit_id_out) {
 
-    // Step 1: create tree
-    ObjectID tree_id;
-    if (tree_from_index(&tree_id) != 0)
-        return -1;
+    printf("STEP 1: tree_from_index\n");
 
-    // Step 2: get author
+    ObjectID tree_id;
+    if (tree_from_index(&tree_id) != 0) {
+        printf("ERROR: tree_from_index failed\n");
+        return -1;
+    }
+
+    printf("STEP 2: author\n");
+
     const char *author = getenv("PES_AUTHOR");
     if (!author)
         author = "PES User <pes@localhost>";
 
-    // Step 3: convert tree id to hex
+    printf("STEP 3: convert tree id\n");
+
     char tree_hex[65];
     object_id_to_hex(&tree_id, tree_hex);
 
-    // Step 4: build commit content
+    printf("TREE HEX: %s\n", tree_hex);
+
+    printf("STEP 4: build commit content\n");
+
     char buffer[1024];
-    int len = snprintf(buffer, sizeof(buffer),
-        "tree %s\nauthor %s\nmessage %s\n",
-        tree_hex,
-        author,
-        message);
+    // Step 4: build commit struct
+Commit commit;
 
-    if (len < 0) return -1;
+commit.tree = tree_id;
 
-    // Step 5: store commit object
-    if (object_write(OBJ_COMMIT, buffer, len, commit_id_out) != 0)
+// Read parent (if exists)
+if (head_read(&commit.parent) == 0) {
+    commit.has_parent = 1;
+} else {
+    commit.has_parent = 0;
+}
+
+// Author + timestamp
+snprintf(commit.author, sizeof(commit.author), "%s", author);
+commit.timestamp = (uint64_t)time(NULL);
+
+// Message
+snprintf(commit.message, sizeof(commit.message), "%s", message);
+
+// Serialize commit
+void *data;
+size_t len;
+
+if (commit_serialize(&commit, &data, &len) != 0) {
+    printf("ERROR: commit serialize failed\n");
+    return -1;
+}
+
+// Write object
+if (object_write(OBJ_COMMIT, data, len, commit_id_out) != 0) {
+    printf("ERROR: object_write failed\n");
+    free(data);
+    return -1;
+}
+
+free(data);
+
+// Update HEAD
+if (head_update(commit_id_out) != 0) {
+    printf("ERROR: head update failed\n");
+    return -1;
+}
+
+printf("SUCCESS: commit created\n");
+
+return 0;
+
+    if (len < 0) {
+        printf("ERROR: snprintf failed\n");
         return -1;
+    }
 
-    // Step 6: update HEAD
+    printf("STEP 5: write object\n");
+
+    if (object_write(OBJ_COMMIT, buffer, len, commit_id_out) != 0) {
+        printf("ERROR: object_write failed\n");
+        return -1;
+    }
+
+    printf("STEP 6: update HEAD\n");
+
     char commit_hex[65];
     object_id_to_hex(commit_id_out, commit_hex);
 
     FILE *f = fopen(".pes/refs/heads/main", "w");
-    if (!f) return -1;
+    if (!f) {
+        printf("ERROR: cannot open HEAD file\n");
+        return -1;
+    }
 
     fprintf(f, "%s\n", commit_hex);
     fclose(f);
+
+    printf("SUCCESS: commit created\n");
 
     return 0;
 }
