@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+// Phase 3: index_save ensures staged changes persist across commands
 
 // ─── PROVIDED: Command Implementations ──────────────────────────────────────
 
@@ -51,6 +52,11 @@ void cmd_add(int argc, char *argv[]) {
         if (index_add(&index, argv[i]) != 0) {
             fprintf(stderr, "error: failed to add '%s'\n", argv[i]);
         }
+    }
+    
+    if (index_save(&index) != 0) {
+        fprintf(stderr, "error: failed to save index\n");
+        return;
     }
 }
 
