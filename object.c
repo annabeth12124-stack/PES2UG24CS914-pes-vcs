@@ -116,6 +116,18 @@ mkdir(".pes/objects", 0777);
 
 // Create subdirectory (ab)
 mkdir(dir_path, 0777);
+
+char file_path[512];
+snprintf(file_path, sizeof(file_path), "%s/%s", dir_path, hex + 2);
+
+FILE *fp = fopen(file_path, "wb");
+if (!fp) {
+    return -1;
+}
+
+fwrite(data, 1, len, fp);
+fclose(fp);
+
     // Copy hash into id_out
     memcpy(id_out->hash, hash, SHA256_DIGEST_LENGTH);
 
