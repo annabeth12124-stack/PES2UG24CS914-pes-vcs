@@ -199,5 +199,13 @@ if (tree_from_index(&tree_id) != 0)
 const char *author = getenv("PES_AUTHOR");
 if (!author)
     author = "PES User <pes@localhost>";
+    
+    char buffer[1024];
+
+int len = snprintf(buffer, sizeof(buffer),
+    "tree %s\nauthor %s\nmessage %s\n",
+    object_id_to_hex(&tree_id),
+    author,
+    message);
     return -1;
 }
