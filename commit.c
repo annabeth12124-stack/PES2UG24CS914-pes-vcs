@@ -202,7 +202,6 @@ void object_id_to_hex(const ObjectID *id, char *hex) {
 }
 int commit_create(const char *message, ObjectID *commit_id_out) {
 
-    printf("STEP 1: tree_from_index\n");
 
     ObjectID tree_id;
     if (tree_from_index(&tree_id) != 0) {
@@ -210,23 +209,20 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
         return -1;
     }
 
-    printf("STEP 2: author\n");
 
     const char *author = getenv("PES_AUTHOR");
     if (!author)
         author = "PES User <pes@localhost>";
 
-    printf("STEP 3: convert tree id\n");
 
     char tree_hex[65];
     object_id_to_hex(&tree_id, tree_hex);
 
     printf("TREE HEX: %s\n", tree_hex);
 
-    printf("STEP 4: build commit content\n");
 
     char buffer[1024];
-    // Step 4: build commit struct
+
 Commit commit;
 
 commit.tree = tree_id;
@@ -271,21 +267,18 @@ if (head_update(commit_id_out) != 0) {
 
 printf("SUCCESS: commit created\n");
 
-return 0;
+return 0;      
 
     if (len < 0) {
         printf("ERROR: snprintf failed\n");
         return -1;
     }
 
-    printf("STEP 5: write object\n");
 
     if (object_write(OBJ_COMMIT, buffer, len, commit_id_out) != 0) {
         printf("ERROR: object_write failed\n");
         return -1;
     }
-
-    printf("STEP 6: update HEAD\n");
 
     char commit_hex[65];
     object_id_to_hex(commit_id_out, commit_hex);
