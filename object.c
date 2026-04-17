@@ -98,7 +98,12 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     // Step 1: compute SHA256 hash
     unsigned char hash[SHA256_DIGEST_LENGTH];
     SHA256(data, len, hash);
+    char hex[SHA256_DIGEST_LENGTH * 2 + 1];
 
+for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+    sprintf(hex + (i * 2), "%02x", hash[i]);
+}
+hex[64] = '\0';
     // Copy hash into id_out
     memcpy(id_out->hash, hash, SHA256_DIGEST_LENGTH);
 
