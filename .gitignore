@@ -16,5 +16,5 @@ test_tree
 *~
 .vscode/
 .idea/
-
+*.txt
 
