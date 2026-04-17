@@ -143,5 +143,12 @@ for (int i = 0; i < idx.count; i++) {
     strcpy(e->name, idx.entries[i].path);
     e->hash = idx.entries[i].id;
 }
+
+void *data;
+size_t len;
+
+if (tree_serialize(&tree, &data, &len) != 0)
     return -1;
+    
+
 }
