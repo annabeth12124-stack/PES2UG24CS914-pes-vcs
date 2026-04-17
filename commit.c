@@ -194,20 +194,44 @@ int head_update(const ObjectID *new_commit) {
 //
 // Returns 0 on success, -1 on error.
 int commit_create(const char *message, ObjectID *commit_id_out) {
-    ObjectID tree_id;
-if (tree_from_index(&tree_id) != 0)
-const char *author = getenv("PES_AUTHOR");
-if (!author)
-    author = "PES User <pes@localhost>";
-    
-    char buffer[1024];
 
-int len = snprintf(buffer, sizeof(buffer),
-    "tree %s\nauthor %s\nmessage %s\n",
-    object_id_to_hex(&tree_id),
-    author,
-    message);
-    if (object_write(OBJ_COMMIT, buffer, len, id_out) != 0)
-    return -1;
-    return -1;
+    // Step 1: create tree
+    ObjectID tree_id;
+    if (tree_from_index(&tree_id) != 0)
+        return -1;
+
+    // Step 2: get author
+    const char *author = getenv("PES_AUTHOR");
+    if (!author)
+        author = "PES User <pes@localhost>";
+
+    // Step 3: convert tree id to hex
+    char tree_hex[65];
+    object_id_to_hex(&tree_id, tree_hex);
+
+    // Step 4: build commit content
+    char buffer[1024];
+    int len = snprintf(buffer, sizeof(buffer),
+        "tree %s\nauthor %s\nmessage %s\n",
+        tree_hex,
+        author,
+        message);
+
+    if (len < 0) return -1;
+
+    // Step 5: store commit object
+    if (object_write(OBJ_COMMIT, buffer, len, commit_id_out) != 0)
+        return -1;
+
+    // Step 6: update HEAD
+    char commit_hex[65];
+    object_id_to_hex(commit_id_out, commit_hex);
+
+    FILE *f = fopen(".pes/refs/heads/main", "w");
+    if (!f) return -1;
+
+    fprintf(f, "%s\n", commit_hex);
+    fclose(f);
+
+    return 0;
 }
