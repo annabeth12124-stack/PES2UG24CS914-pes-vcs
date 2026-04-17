@@ -133,5 +133,15 @@ int tree_from_index(ObjectID *id_out) {
     Index idx;
 if (index_load(&idx) != 0) return -1;
 
+Tree tree;
+tree.count = 0;
+
+for (int i = 0; i < idx.count; i++) {
+    TreeEntry *e = &tree.entries[tree.count++];
+
+    e->mode = idx.entries[i].mode;
+    strcpy(e->name, idx.entries[i].path);
+    e->hash = idx.entries[i].id;
+}
     return -1;
 }
