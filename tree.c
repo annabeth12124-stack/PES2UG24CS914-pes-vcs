@@ -9,12 +9,17 @@
 // Example single entry (conceptual):
 //   "100644 hello.txt\0" followed by 32 raw bytes of SHA-256
 
+
+// Phase 2: Tree is built from index entries and serialized deterministically
+
 #include "tree.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include "index.h"
+#include "pes.h"
 
 // ─── Mode Constants ─────────────────────────────────────────────────────────
 
@@ -141,7 +146,7 @@ for (int i = 0; i < idx.count; i++) {
 
     e->mode = idx.entries[i].mode;
     strcpy(e->name, idx.entries[i].path);
-    e->hash = idx.entries[i].id;
+    e->hash = idx.entries[i].hash; 
 }
 
 void *data;
