@@ -196,6 +196,8 @@ int head_update(const ObjectID *new_commit) {
 int commit_create(const char *message, ObjectID *commit_id_out) {
     ObjectID tree_id;
 if (tree_from_index(&tree_id) != 0)
-
+const char *author = getenv("PES_AUTHOR");
+if (!author)
+    author = "PES User <pes@localhost>";
     return -1;
 }
