@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#include <sys/types.h>
 
 // ─── PROVIDED ────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,17 @@ for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
     sprintf(hex + (i * 2), "%02x", hash[i]);
 }
 hex[64] = '\0';
+char dir_path[256];
+snprintf(dir_path, sizeof(dir_path), ".pes/objects/%.2s", hex);
+
+// Create .pes if not exists
+mkdir(".pes", 0777);
+
+// Create objects directory
+mkdir(".pes/objects", 0777);
+
+// Create subdirectory (ab)
+mkdir(dir_path, 0777);
     // Copy hash into id_out
     memcpy(id_out->hash, hash, SHA256_DIGEST_LENGTH);
 
