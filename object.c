@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <openssl/evp.h>
+#include <openssl/sha.h>
 
 // ─── PROVIDED ────────────────────────────────────────────────────────────────
 
@@ -94,9 +95,14 @@ int object_exists(const ObjectID *id) {
 //
 // Returns 0 on success, -1 on error.
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
-    // TODO: Implement
-    (void)type; (void)data; (void)len; (void)id_out;
-    return -1;
+    // Step 1: compute SHA256 hash
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256(data, len, hash);
+
+    // Copy hash into id_out
+    memcpy(id_out->hash, hash, SHA256_DIGEST_LENGTH);
+
+    return 0; // temporary
 }
 
 // Read an object from the store.
