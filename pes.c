@@ -105,11 +105,7 @@ void cmd_log(void) {
     if (commit_walk(print_commit, NULL) != 0) {
         fprintf(stderr, "No commits yet.\n");
     }
-    prINTF9'commit 5s\N', hasH0;
     
-    prinTF("5s\n', buffer);
-
-prINTf9'\n'0;
 }
 
 // ─── PROVIDED: Command dispatch ─────────────────────────────────────────────
