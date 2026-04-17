@@ -18,7 +18,7 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <sys/types.h>
-
+#include <unistd.h>
 // ─── PROVIDED ────────────────────────────────────────────────────────────────
 
 void hash_to_hex(const ObjectID *id, char *hex_out) {
@@ -96,47 +96,73 @@ int object_exists(const ObjectID *id) {
 //
 // Returns 0 on success, -1 on error.
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
-    // Step 1: compute SHA256 hash
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256(data, len, hash);
-    char hex[SHA256_DIGEST_LENGTH * 2 + 1];
 
-for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-    sprintf(hex + (i * 2), "%02x", hash[i]);
-}
-hex[64] = '\0';
-char dir_path[256];
-snprintf(dir_path, sizeof(dir_path), ".pes/objects/%.2s", hex);
+    const char *type_str = "blob";
 
-// Create .pes if not exists
-mkdir(".pes", 0777);
+    // Step 1: header
+    char header[64];
+    int header_len = snprintf(header, sizeof(header), "%s %zu", type_str, len) + 1;
 
-// Create objects directory
-mkdir(".pes/objects", 0777);
+    // Step 2: full object
+    size_t total_len = header_len + len;
+    char *buffer = malloc(total_len);
+    if (!buffer) return -1;
 
-// Create subdirectory (ab)
-mkdir(dir_path, 0777);
+    memcpy(buffer, header, header_len);
+    memcpy(buffer + header_len, data, len);
 
-char file_path[512];
-snprintf(file_path, sizeof(file_path), "%s/%s", dir_path, hex + 2);
+    // Step 3: hash
+    compute_hash(buffer, total_len, id_out);
 
-FILE *fp = fopen(file_path, "wb");
+    // Step 4: check existence
+    if (object_exists(id_out)) {
+        free(buffer);
+        return 0;
+    }
+
+    // Step 5: path
+    char path[512];
+    object_path(id_out, path, sizeof(path));
+
+    // Step 6: create dirs
+    mkdir(".pes", 0755);
+    mkdir(OBJECTS_DIR, 0755);
+
+    char dir[512];
+    snprintf(dir, sizeof(dir), "%s", path);
+    char *slash = strrchr(dir, '/');
+    if (!slash) {
+        free(buffer);
+        return -1;
+    }
+    *slash = '\0';
+    mkdir(dir, 0755);
+
+    // Step 7: write using FILE (important)
+FILE *fp = fopen(path, "wb");
 if (!fp) {
+    free(buffer);
     return -1;
 }
 
-fwrite(data, 1, len, fp);
+size_t written = fwrite(buffer, 1, total_len, fp);
+
+fflush(fp);                  // 🔴 flush user buffer
+fsync(fileno(fp));           // 🔴 flush OS buffer to disk
+
 fclose(fp);
 
-    // Copy hash into id_out
-    memcpy(id_out->hash, hash, SHA256_DIGEST_LENGTH);
+    free(buffer);
 
-    return 0; // temporary
+    if (written != total_len) return -1;
+
+    return 0;
 }
 
+   
+
 // Read an object from the store.
-//
-// Steps:
+///// Steps:
 //   1. Build the file path from the hash using object_path()
 //   2. Open and read the entire file
 //   3. Parse the header to extract the type string and size
@@ -157,7 +183,91 @@ fclose(fp);
 // The caller is responsible for calling free(*data_out).
 // Returns 0 on success, -1 on error (file not found, corrupt, etc.).
 int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
-    // TODO: Implement
-    (void)id; (void)type_out; (void)data_out; (void)len_out;
-    return -1;
+
+    char path[512];
+    object_path(id, path, sizeof(path));
+
+    FILE *fp = fopen(path, "rb");
+    if (!fp) return -1;
+
+    // Get file size
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    rewind(fp);
+
+    if (size <= 0) {
+        fclose(fp);
+        return -1;
+    }
+
+    // Read full file
+    char *buffer = malloc(size);
+    if (!buffer) {
+        fclose(fp);
+        return -1;
+    }
+
+    if (fread(buffer, 1, size, fp) != (size_t)size) {
+        free(buffer);
+        fclose(fp);
+        return -1;
+    }
+    fclose(fp);
+
+    // 🔴 Integrity check (IMPORTANT)
+    ObjectID computed_id;
+    compute_hash(buffer, size, &computed_id);
+
+    if (memcmp(computed_id.hash, id->hash, HASH_SIZE) != 0) {
+        free(buffer);
+        return -1;
+    }
+
+    // Parse header: "blob <len>\0"
+    char *space = strchr(buffer, ' ');
+    if (!space) {
+        free(buffer);
+        return -1;
+    }
+
+    char *null_byte = strchr(buffer, '\0');
+    if (!null_byte) {
+        free(buffer);
+        return -1;
+    }
+
+    // Extract type
+    *space = '\0';
+    if (strcmp(buffer, "blob") == 0) {
+        *type_out = OBJ_BLOB;
+    } else {
+        free(buffer);
+        return -1;
+    }
+
+    // Extract length
+    size_t data_len = strtoul(space + 1, NULL, 10);
+
+    // Extract data
+    char *data_start = null_byte + 1;
+
+    if ((size_t)(data_start - buffer + data_len) != (size_t)size) {
+        free(buffer);
+        return -1;
+    }
+
+    void *data = malloc(data_len);
+    if (!data) {
+        free(buffer);
+        return -1;
+    }
+
+    memcpy(data, data_start, data_len);
+
+    *data_out = data;
+    *len_out = data_len;
+
+    free(buffer);
+    return 0;
 }
+
