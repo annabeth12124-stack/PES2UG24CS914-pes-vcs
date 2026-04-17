@@ -105,6 +105,11 @@ void cmd_log(void) {
     if (commit_walk(print_commit, NULL) != 0) {
         fprintf(stderr, "No commits yet.\n");
     }
+    FILE *f = fopen(".pes/refs/heads/main", "r");
+if (!f) {
+    printf("No commits yet\n");
+    return;
+}
 }
 
 // ─── PROVIDED: Command dispatch ─────────────────────────────────────────────
