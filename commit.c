@@ -207,5 +207,7 @@ int len = snprintf(buffer, sizeof(buffer),
     object_id_to_hex(&tree_id),
     author,
     message);
+    if (object_write(OBJ_COMMIT, buffer, len, id_out) != 0)
+    return -1;
     return -1;
 }
